@@ -1,0 +1,47 @@
+# Publishes n8n-nodes-celoxis to npm on version tag push (e.g. 1.0.0).
+# Required for n8n Creator Portal verification (GitHub Actions + npm provenance).
+#
+# One-time setup on npmjs.com for package n8n-nodes-celoxis:
+#   Publish access → Trusted Publishers → GitHub Actions
+#   Repository owner: celoxis
+#   Repository name: n8n-nodes-celoxis
+#   Workflow name: publish.yml
+#
+# Release:
+#   npm version 1.0.0   # or patch/minor/major
+#   git push origin main --follow-tags
+
+name: Publish
+
+on:
+  push:
+    tags:
+      - '*.*.*'
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Verify package loads
+        run: node -e "require('./index'); require('./mapping'); console.log('ok')"
+
+      - name: Publish
+        run: |
+          [ -n "$NPM_TOKEN" ] && npm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
+          npm publish --access public --provenance
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

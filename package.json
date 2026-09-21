@@ -1,0 +1,51 @@
+{
+  "name": "n8n-nodes-celoxis",
+  "version": "1.0.0",
+  "description": "Celoxis integration for n8n — create, update, find, delete, and trigger on records",
+  "keywords": [
+    "n8n-community-node-package",
+    "n8n",
+    "celoxis",
+    "project-management"
+  ],
+  "license": "MIT",
+  "author": {
+    "name": "Celoxis",
+    "email": "support@celoxis.com"
+  },
+  "homepage": "https://github.com/celoxis/n8n-nodes-celoxis#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/celoxis/n8n-nodes-celoxis.git"
+  },
+  "bugs": {
+    "url": "https://github.com/celoxis/n8n-nodes-celoxis/issues"
+  },
+  "main": "index.js",
+  "scripts": {
+    "test:load": "node -e \"require('./index'); require('./mapping'); console.log('ok')\"",
+    "prepublishOnly": "npm run test:load"
+  },
+  "files": [
+    "credentials",
+    "nodes",
+    "lib",
+    "index.js",
+    "mapping.js",
+    "LICENSE",
+    "README.md"
+  ],
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": [
+      "credentials/CeloxisApi.credentials.js"
+    ],
+    "nodes": [
+      "nodes/Celoxis/Celoxis.node.js",
+      "nodes/Celoxis/CeloxisTrigger.node.js"
+    ]
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
