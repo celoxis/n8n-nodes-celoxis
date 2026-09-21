@@ -15,7 +15,8 @@
     "checkJs": false,
     "resolveJsonModule": true,
     "noImplicitAny": false,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "types": ["node"]
   },
   "include": [
     "credentials/**/*",

@@ -6,9 +6,14 @@ import type {
 } from 'n8n-workflow';
 import { NodeConnectionTypes } from 'n8n-workflow';
 
-// Shared helpers (compiled from JS next to these sources)
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { bindMethods, execute, mapping } = require('../../index');
+// Shared helpers compiled from JS (CommonJS)
+import helpers = require('../../index');
+
+const { bindMethods, execute, mapping } = helpers as {
+	bindMethods: () => INodeType['methods'];
+	execute: (ctx: IExecuteFunctions) => Promise<INodeExecutionData[][]>;
+	mapping: { actionProperties: INodeTypeDescription['properties'] };
+};
 
 export class Celoxis implements INodeType {
 	description: INodeTypeDescription = {

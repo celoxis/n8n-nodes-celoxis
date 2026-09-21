@@ -7,9 +7,18 @@ import type {
 } from 'n8n-workflow';
 import { NodeConnectionTypes } from 'n8n-workflow';
 
-// Shared helpers (compiled from JS next to these sources)
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { bindMethods, webhookMethods, webhook, mapping } = require('../../index');
+// Shared helpers compiled from JS (CommonJS)
+import helpers = require('../../index');
+
+const { bindMethods, webhookMethods, webhook, mapping } = helpers as {
+	bindMethods: () => INodeType['methods'];
+	webhookMethods: () => INodeType['webhookMethods'];
+	webhook: (ctx: IHookFunctions | IWebhookFunctions) => Promise<IWebhookResponseData>;
+	mapping: {
+		webhookConfig: INodeTypeDescription['webhooks'];
+		triggerProperties: INodeTypeDescription['properties'];
+	};
+};
 
 export class CeloxisTrigger implements INodeType {
 	description: INodeTypeDescription = {
@@ -40,6 +49,6 @@ export class CeloxisTrigger implements INodeType {
 	webhookMethods = webhookMethods();
 
 	async webhook(this: IWebhookFunctions): Promise<IWebhookResponseData> {
-		return webhook(this as unknown as IHookFunctions);
+		return webhook(this);
 	}
 }
