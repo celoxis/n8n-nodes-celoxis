@@ -36,8 +36,14 @@ jobs:
           node-version: 'lts/*'
           registry-url: 'https://registry.npmjs.org'
 
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
       - name: Verify package loads
-        run: node -e "require('./index'); require('./mapping'); console.log('ok')"
+        run: node -e "require('./dist/index'); require('./dist/mapping'); console.log('ok')"
 
       - name: Publish
         run: |

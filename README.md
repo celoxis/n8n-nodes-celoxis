@@ -3,16 +3,15 @@
 Celoxis for n8n — same idea as the Zapier app: customers run **their** n8n, install this node, connect with a Celoxis token.
 
 ```
-n8n-wrapper/                          npm name: n8n-nodes-celoxis
-  credentials/CeloxisApi.credentials.js
+n8n-nodes-celoxis/                 npm name: n8n-nodes-celoxis
+  credentials/CeloxisApi.credentials.ts
   nodes/Celoxis/
-    Celoxis.node.js                   actions
-    CeloxisTrigger.node.js            created / updated
-  lib/                                vendored from integrations/common
-    celoxisAdapter.js
-    mappingCore.js
-  mapping.js
-  index.js
+    Celoxis.node.ts
+    CeloxisTrigger.node.ts
+    celoxis.svg
+  lib/                             vendored helpers (compiled into dist/)
+  index.js / mapping.js
+  dist/                            build output (published)
   package.json
 ```
 

@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-celoxis",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Celoxis integration for n8n — create, update, find, delete, and trigger on records",
   "keywords": [
     "n8n-community-node-package",
@@ -21,31 +21,35 @@
   "bugs": {
     "url": "https://github.com/celoxis/n8n-nodes-celoxis/issues"
   },
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
-    "test:load": "node -e \"require('./index'); require('./mapping'); console.log('ok')\"",
-    "prepublishOnly": "npm run test:load"
+    "build": "tsc && npm run copy:icons",
+    "copy:icons": "mkdir -p dist/nodes/Celoxis && cp nodes/Celoxis/*.svg dist/nodes/Celoxis/",
+    "lint": "echo 'lint via scan; use npx @n8n/scan-community-package@beta n8n-nodes-celoxis after publish'",
+    "test:load": "npm run build && node -e \"require('./dist/index'); require('./dist/mapping'); console.log('ok')\"",
+    "prepublishOnly": "npm run build && npm run test:load"
   },
   "files": [
-    "credentials",
-    "nodes",
-    "lib",
-    "index.js",
-    "mapping.js",
-    "LICENSE",
-    "README.md"
+    "dist"
   ],
   "n8n": {
     "n8nNodesApiVersion": 1,
     "credentials": [
-      "credentials/CeloxisApi.credentials.js"
+      "dist/credentials/CeloxisApi.credentials.js"
     ],
     "nodes": [
-      "nodes/Celoxis/Celoxis.node.js",
-      "nodes/Celoxis/CeloxisTrigger.node.js"
+      "dist/nodes/Celoxis/Celoxis.node.js",
+      "dist/nodes/Celoxis/CeloxisTrigger.node.js"
     ]
   },
   "engines": {
     "node": ">=18"
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  },
+  "devDependencies": {
+    "n8n-workflow": "^2.16.0",
+    "typescript": "^5.9.3"
   }
 }
