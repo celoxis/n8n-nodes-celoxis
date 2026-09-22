@@ -1,102 +1,85 @@
 # n8n-nodes-celoxis
 
-Celoxis for n8n — same idea as the Zapier app: customers run **their** n8n, install this node, connect with a Celoxis token.
+This is an n8n community node. It lets you use [Celoxis](https://www.celoxis.com/) in your n8n workflows.
 
-```
-n8n-nodes-celoxis/                 npm name: n8n-nodes-celoxis
-  credentials/CeloxisApi.credentials.ts
-  nodes/Celoxis/
-    Celoxis.node.ts
-    CeloxisTrigger.node.ts
-    celoxis.svg
-  lib/                             vendored helpers (compiled into dist/)
-  index.js / mapping.js
-  dist/                            build output (published)
-  package.json
-```
+Celoxis is a project management and PSA platform. With this node you can create, update, find, and delete records, and trigger workflows when records are created or updated.
 
----
+[n8n](https://n8n.io/) is a [fair-code licensed](https://docs.n8n.io/reference/license/) workflow automation platform.
 
-## 1. Test locally (do this first)
+[Installation](#installation)  
+[Operations](#operations)  
+[Credentials](#credentials)  
+[Compatibility](#compatibility)  
+[Usage](#usage)  
+[Resources](#resources)
 
-You already have n8n at `http://localhost:5678`. It will **not** show Celoxis until this package is linked and n8n is restarted.
+## Installation
 
-### Install n8n CLI if needed
+Follow the [installation guide](https://docs.n8n.io/integrations/community-nodes/installation/) in the n8n community nodes docs.
 
-```bash
-npm install -g n8n
-```
+**Package name:** `n8n-nodes-celoxis`
 
-### Link this package into n8n (recommended)
+1. **Self-hosted n8n** → Settings → Community nodes → Install `n8n-nodes-celoxis`
+2. **n8n Cloud** → available after [Creator Portal](https://creators.n8n.io/nodes) verification
 
-```bash
-cd /Users/akhlesh/working_projects/v15.1.0/psa/base/src/integrations/n8n-wrapper
-npm link
+## Operations
 
-mkdir -p ~/.n8n/custom
-cd ~/.n8n/custom
-npm init -y
-npm link n8n-nodes-celoxis
-```
+### Triggers
 
-Stop the n8n process that is bound to port 5678, then:
-
-```bash
-n8n start
-```
-
-Open `http://localhost:5678` → **Add first step** → search **Celoxis**.
-
-You should see:
-
-| Triggers | Actions |
+| Trigger | Description |
 |---|---|
-| On record created | Create a Celoxis record |
-| On record updated | Update / Get / Find / Upsert / Clone / Delete record, Move a task |
+| On record created | Fires when a Celoxis record is created |
+| On record updated | Fires when a Celoxis record is updated |
 
-If Celoxis does not appear: n8n was not restarted, or a **different** n8n is still running (Docker, desktop app, another Node process). Quit that one and start `n8n start` from a terminal after the `npm link` steps.
+### Actions
 
-### Alternative: env var (no npm link)
+| Action | Description |
+|---|---|
+| Create a Celoxis record | Create a new record |
+| Update a Celoxis record | Update an existing record |
+| Get a Celoxis record | Fetch a record by id |
+| Find Celoxis records | Search / filter records |
+| Upsert a Celoxis record | Create or update |
+| Clone a Celoxis record | Clone an existing record |
+| Delete a Celoxis record | Delete a record |
+| Move a task | Move a task in Celoxis |
 
-```bash
-export N8N_CUSTOM_EXTENSIONS="/Users/akhlesh/working_projects/v15.1.0/psa/base/src/integrations/n8n-wrapper"
-n8n start
-```
+Supported record types depend on your Celoxis instance (for example projects, tasks, and other integration-enabled types).
 
-### Exercise a real call
+## Credentials
 
-1. Celoxis must be running with `/api/integrations/v1` (local app or SaaS).
-2. In n8n: Credentials → **Celoxis API**
-   - Access Token: Celoxis profile → API (admin)
-   - Server URL: `https://app.celoxis.com` / `https://eu.celoxis.com` / your on-prem origin
-3. Add **Celoxis** → action **Get a Celoxis record** (safest first test).
-4. **Type** should fill from Celoxis (projects, tasks, …). If it is empty, the node loaded but the API call failed — check token, URL, and that the integration API is deployed.
-5. Enter a known record id → Execute step.
+Add credentials of type **Celoxis API**:
 
-Triggers need a reachable webhook URL. On localhost use n8n’s webhook test URL only if Celoxis can POST to it (tunnel / n8n cloud), or test actions first.
+| Field | Description |
+|---|---|
+| **Access Token** | From Celoxis → your profile → **API** (admin) |
+| **Server URL** | Celoxis origin, e.g. `https://app.celoxis.com`, `https://eu.celoxis.com`, or your on-prem URL |
 
----
+The node calls Celoxis at `/api/integrations/v1` on that server.
 
-## 2. Publish (npm + GitHub Actions)
+## Compatibility
 
-Package name: `n8n-nodes-celoxis`. Keep the keyword `n8n-community-node-package`.
+- Requires **Node.js 18+**
+- Built for n8n community nodes (`n8n-community-node-package`)
+- Works with Celoxis SaaS and on-prem instances that expose the integrations API
 
-Do **not** use laptop `npm publish` for verification. Publish via tag → GitHub Actions (`.github/workflows/publish.yml`) with npm provenance.
+## Usage
 
-```bash
-# after changing integrations/common, re-vendor:
-cp ../common/celoxisAdapter.js ../common/mappingCore.js lib/
+1. Install the community node (see above).
+2. Create **Celoxis API** credentials with your access token and server URL.
+3. Add a **Celoxis** node to a workflow.
+4. Prefer **Get a Celoxis record** for a first test: pick a type (loaded from Celoxis) and a known record id, then execute.
 
-# from this package (or the public clone of celoxis/n8n-nodes-celoxis):
-npm version 1.0.0   # or patch / minor / major
-git push origin main --follow-tags
-```
+If the **Type** dropdown is empty, the node loaded but the API call failed — check the token, server URL, and that your Celoxis instance has the integrations API available.
 
-One-time on npm: Trusted Publisher → GitHub Actions → owner `celoxis`, repo `n8n-nodes-celoxis`, workflow `publish.yml`.
+**Triggers** use webhooks. Celoxis must be able to reach your n8n webhook URL (public n8n, tunnel, or n8n Cloud). On a private localhost, test actions first.
 
-Customers:
+## Resources
 
-1. Self-hosted → Settings → Community nodes → Install `n8n-nodes-celoxis`
-2. n8n Cloud search → after [Creator Portal](https://creators.n8n.io/nodes) verification
+- [n8n community nodes documentation](https://docs.n8n.io/integrations/#community-nodes)
+- [Celoxis](https://www.celoxis.com/)
+- [Report issues](https://github.com/celoxis/n8n-nodes-celoxis/issues)
 
-Credentials: Access Token + Server URL.
+## License
+
+[MIT](LICENSE)
