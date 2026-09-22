@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-celoxis",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Celoxis integration for n8n — create, update, find, delete, and trigger on records",
   "keywords": [
     "n8n-community-node-package",
