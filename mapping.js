@@ -9,63 +9,66 @@ const core = require('./lib/mappingCore');
 const SAMPLE = core.SAMPLE;
 
 const WRITE_OPS = ['create', 'update', 'clone', 'upsert', 'transition'];
-const ID_OPS = ['get', 'update', 'delete', 'clone', 'move'];
-const SCHEMA_OPS = ['create', 'update', 'clone', 'upsert', 'search', 'move', 'transition'];
+const ID_OPS = ['update', 'delete', 'clone', 'move'];
+// Include get: Fields come from get schema (entity identifiers only — not a static ID/Code/GUID set).
+const SCHEMA_OPS = ['create', 'update', 'clone', 'upsert', 'search', 'move', 'transition', 'get'];
 
 const operations = [
   {
     name: 'Create Record',
     value: 'create',
-    action: 'Create a Celoxis record',
-    description: 'Creates a Celoxis record. Choose Type, then fill in the fields Celoxis returns.',
+    action: 'Create a record',
+    description: 'Create a record. Choose Type, then complete the fields for that type.',
   },
   {
     name: 'Update Record',
     value: 'update',
-    action: 'Update a Celoxis record',
-    description: 'Updates a Celoxis record. Choose Type and ID, then fill in fields to change.',
+    action: 'Update a record',
+    description: 'Update a record. Choose Type and ID, then set the fields to change.',
   },
   {
     name: 'Get Record',
     value: 'get',
-    action: 'Get a Celoxis record',
-    description: 'Gets one Celoxis record by Type and numeric ID.',
+    action: 'Get a record',
+    description:
+      'Get one record by Type using exactly one identifier: ID, Project Code, External Key, or GUID (when supported).',
   },
   {
     name: 'Find Records',
     value: 'search',
-    action: 'Find Celoxis records',
-    description: 'Finds Celoxis records. Choose Type, then optional filters from Celoxis.',
+    action: 'Find records',
+    description:
+      'Find records matching filters (all conditions must match), with optional page, limit, and sort.',
   },
   {
     name: 'Upsert Record',
     value: 'upsert',
-    action: 'Upsert a Celoxis record',
-    description: 'Creates or updates a Celoxis record. Type list comes from Celoxis (unsupported types are omitted).',
+    action: 'Upsert a record',
+    description: 'Create or update a record. Only types that support upsert appear under Type.',
   },
   {
     name: 'Clone Record',
     value: 'clone',
-    action: 'Clone a Celoxis record',
-    description: 'Clones an existing Celoxis record using Celoxis clone (not Get + Create).',
+    action: 'Clone a record',
+    description: 'Clone an existing record.',
   },
   {
     name: 'Delete Record',
     value: 'delete',
-    action: 'Delete a Celoxis record',
-    description: 'Deletes a Celoxis record. Choose Type and ID. Only types Celoxis allows appear in Type.',
+    action: 'Delete a record',
+    description: 'Delete a record. Choose Type and ID. Only deletable types appear under Type.',
   },
   {
     name: 'Move Task',
     value: 'move',
     action: 'Move a task',
-    description: 'Moves a task to another project, optionally under a parent task.',
+    description: 'Move a task to another project, optionally under a parent task.',
   },
   {
     name: 'Do State Transition',
     value: 'transition',
     action: 'Do state transition',
-    description: 'Runs a workflow transition (Approve, Reject, …) on a custom app record.',
+    description: 'Run a workflow transition on a custom app record.',
   },
 ];
 
@@ -74,13 +77,13 @@ const triggerEvents = [
     name: 'Record Created',
     value: 'created',
     action: 'On record created',
-    description: 'Triggers when a Celoxis record is created. Choose Type first.',
+    description: 'Triggers when a record is created. Choose Type first.',
   },
   {
     name: 'Record Updated',
     value: 'updated',
     action: 'On record updated',
-    description: 'Triggers when a Celoxis record is updated. Choose Type first.',
+    description: 'Triggers when a record is updated. Choose Type first.',
   },
 ];
 
@@ -263,6 +266,25 @@ const requireEntityKey = (entityKey, operation) => {
   return entityKey;
 };
 
+/** Build POST .../get body: exactly one of id / code / externalKey / guid from n8n input. */
+const getLookupFromInput = (input) => {
+  const data = input || {};
+  const lookup = {};
+  if (data.id != null && data.id !== '' && Number(data.id) > 0) {
+    lookup.id = data.id;
+  }
+  if (data.code != null && String(data.code).trim() !== '') {
+    lookup.code = String(data.code).trim();
+  }
+  if (data.externalKey != null && String(data.externalKey).trim() !== '') {
+    lookup.externalKey = String(data.externalKey).trim();
+  }
+  if (data.guid != null && String(data.guid).trim() !== '') {
+    lookup.guid = String(data.guid).trim();
+  }
+  return lookup;
+};
+
 const toResourceMapperField = (field) => {
   const key = field.key || field.path;
   // Match columns: id, or schema primary (upsert sets primary on externalKey).
@@ -434,7 +456,15 @@ const executeItem = async (adapter, operation, params) => {
     return res || { id: id, success: true };
   }
   if (operation === 'get') {
-    return core.unwrapRecord(await adapter.get(entityKey, id));
+    // Prefer Resource Mapper values (schema identifiers for this Type); fall back to legacy top-level params.
+    const fromFields = flattenFields(params.fields);
+    const lookup = getLookupFromInput(Object.assign({}, fromFields, {
+      id: fromFields.id != null && fromFields.id !== '' ? fromFields.id : id,
+      code: fromFields.code != null ? fromFields.code : params.code,
+      externalKey: fromFields.externalKey != null ? fromFields.externalKey : params.externalKey,
+      guid: fromFields.guid != null ? fromFields.guid : params.guid,
+    }));
+    return core.unwrapRecord(await adapter.get(entityKey, lookup));
   }
   if (operation === 'search') {
     const searchValues = Object.assign({}, flattenFields(params.fields), schemaValues(params));
@@ -448,7 +478,8 @@ const executeItem = async (adapter, operation, params) => {
         buildSearchPayload(searchValues, {
           allowedOperators: meta.allowedOperators,
           fieldTypes: meta.fieldTypes,
-        })
+        }),
+        core.searchQueryFromInput(params)
       )
     );
   }
@@ -486,9 +517,12 @@ const executeItem = async (adapter, operation, params) => {
   });
 };
 
-const toN8nItems = (result) => {
+const toN8nItems = (result, inputIndex) => {
   const rows = result == null ? [] : Array.isArray(result) ? result : [result];
-  return rows.map((json) => ({ json: json && typeof json === 'object' ? json : { value: json } }));
+  return rows.map((json) => ({
+    json: json && typeof json === 'object' ? json : { value: json },
+    pairedItem: { item: inputIndex ?? 0 },
+  }));
 };
 
 const subscribe = (adapter, entityKey, event, targetUrl, expand, transitionId) => {
@@ -596,7 +630,7 @@ const actionProperties = [
     type: 'options',
     required: true,
     default: '',
-    description: 'Celoxis record type. List comes from Celoxis for the selected operation.',
+    description: 'Record type. Options depend on the selected operation.',
     typeOptions: {
       loadOptionsMethod: 'getEntityKeys',
       loadOptionsDependsOn: ['operation'],
@@ -613,10 +647,10 @@ const actionProperties = [
     type: 'number',
     required: true,
     default: 0,
-    description: 'Numeric Celoxis record id.',
+    description: 'Numeric record id.',
     displayOptions: {
       show: {
-        operation: ['get', 'update', 'delete', 'clone'],
+        operation: ['update', 'delete', 'clone'],
       },
     },
   },
@@ -626,22 +660,27 @@ const actionProperties = [
     type: 'number',
     required: true,
     default: 0,
-    description: 'Numeric Celoxis task id to move.',
+    description: 'Numeric id of the task to move.',
     displayOptions: {
       show: {
         operation: ['move'],
       },
     },
   },
+  // Get: only identifiers this Type advertises (from get schema / entity.identifiers).
+  resourceMapperProperty('add', ['get'], {
+    supportAutoMap: false,
+    loadOptionsDependsOn: ['entityKey', 'operation'],
+  }),
   resourceMapperProperty('add', ['create', 'clone']),
-  // Same pattern as Move: cascade keys outside Resource Mapper so n8n reloads options.
+  // Cascade keys outside Resource Mapper so options reload.
   {
     displayName: 'Record ID',
     name: 'recordId',
     type: 'number',
     required: true,
     default: 0,
-    description: 'Workflow app record id (e.g. Approval id).',
+    description: 'Numeric id of the workflow app record.',
     displayOptions: {
       show: {
         operation: ['transition'],
@@ -654,7 +693,7 @@ const actionProperties = [
     type: 'options',
     required: true,
     default: '',
-    description: 'Allowed for this record’s current state.',
+    description: 'Transition allowed for this record’s current state.',
     typeOptions: {
       loadOptionsMethod: 'getTransitionOptions',
       loadOptionsDependsOn: ['entityKey', 'recordId'],
@@ -674,8 +713,7 @@ const actionProperties = [
   }),
   resourceMapperProperty('update', ['update']),
   resourceMapperProperty('upsert', ['upsert']),
-  // Find: Operator + Value rows (Celoxis filter expressions). Do not use resourceMapper
-  // options for StringFilter templates (">", "=") — those blocked entering a value.
+  // Find: Field / Operator / Value rows. Do not use resourceMapper for filter ops.
   {
     displayName: 'Filters',
     name: 'searchFilters',
@@ -686,7 +724,7 @@ const actionProperties = [
       multipleValues: true,
     },
     description:
-      'Add one or more conditions. Choose Operator (Equals, Greater than, Is Blank, …) then enter Value when needed.',
+      'Add one or more conditions. All conditions must match (AND). Choose Operator, then Value when needed.',
     options: [
       {
         name: 'conditions',
@@ -709,7 +747,8 @@ const actionProperties = [
             type: 'options',
             required: true,
             default: 'eq',
-            description: 'Equals, Greater than, Is Blank, … — then set Value when the operator needs one.',
+            description:
+              'Comparison for the selected Field. Only operators valid for that type are listed. Set Value when the operator needs one.',
             typeOptions: {
               loadOptionsMethod: 'getSearchFilterOperators',
               loadOptionsDependsOn: ['entityKey', 'searchFilters.conditions.field'],
@@ -721,11 +760,51 @@ const actionProperties = [
             type: 'string',
             default: '',
             description:
-              'Compare value (e.g. 2 or Project name). Dates: yyyy-MM-dd (e.g. 2026-07-14). Leave empty for Is Blank / Is Not Blank.',
+              'Value to compare. Use yyyy-MM-dd for dates. Leave empty for Is Blank or Is Not Blank.',
           },
         ],
       },
     ],
+    displayOptions: {
+      show: {
+        operation: ['search'],
+      },
+    },
+  },
+  {
+    displayName: 'Page',
+    name: 'page',
+    type: 'number',
+    required: false,
+    default: 1,
+    description: 'Page number, starting at 1.',
+    displayOptions: {
+      show: {
+        operation: ['search'],
+      },
+    },
+  },
+  {
+    displayName: 'Limit',
+    name: 'limit',
+    type: 'number',
+    required: false,
+    default: 0,
+    description: 'Maximum records per page (the server may apply a lower cap). Leave 0 for the default.',
+    displayOptions: {
+      show: {
+        operation: ['search'],
+      },
+    },
+  },
+  {
+    displayName: 'Sort',
+    name: 'sort',
+    type: 'string',
+    required: false,
+    default: '',
+    description:
+      'Sort expression such as id, id/desc, or name/asc. Use field or field/desc (not a leading minus).',
     displayOptions: {
       show: {
         operation: ['search'],
@@ -749,7 +828,7 @@ const triggerProperties = [
     type: 'options',
     required: true,
     default: '',
-    description: 'Celoxis record type. List comes from Celoxis for the selected event.',
+    description: 'Record type. Options depend on the selected event.',
     typeOptions: {
       loadOptionsMethod: 'getTriggerEntityKeys',
       loadOptionsDependsOn: ['event'],
@@ -762,12 +841,12 @@ const triggerProperties = [
     required: false,
     default: '',
     description:
-      'Optional. Only for workflow app Updates types (e.g. Approvals Updates). Limits the trigger to that transition.',
+      'Optional. For workflow app Updates types only. Limits the trigger to that transition.',
     typeOptions: {
       loadOptionsMethod: 'getTriggerTransitions',
       loadOptionsDependsOn: ['entityKey'],
     },
-    // Same rule as Zapier / backend: transition filter only applies to appUpdates:{id}.
+    // Transition filter only applies to appUpdates:{id}.
     displayOptions: {
       show: {
         entityKey: [{ _cnd: { startsWith: 'appUpdates:' } }],
@@ -804,6 +883,7 @@ module.exports = {
   getEntityOptions,
   getMappingColumns,
   getInputProperties,
+  getLookupFromInput,
   getTransitionOptions,
   getSearchFilterFields,
   getSearchFilterOperators,

@@ -63,7 +63,7 @@ const credentials = {
       typeOptions: { password: true },
       required: true,
       description:
-        'Copy and paste your access token generated in Celoxis. (Click on API under your profile icon. You must have administrator privileges)',
+        'Paste your API access token from your profile (API). Administrator privileges are required.',
     },
     {
       displayName: 'Server URL',
@@ -72,7 +72,7 @@ const credentials = {
       required: true,
       default: 'https://app.celoxis.com',
       description:
-        'US SaaS customers - https://app.celoxis.com. EU SaaS customers - https://eu.celoxis.com. On-premise customers - enter the value on your Administration > Site Settings page.',
+        'US SaaS: https://app.celoxis.com. EU SaaS: https://eu.celoxis.com. On-premise: use the host from Administration > Site Settings.',
     },
   ],
   authenticate: {
@@ -98,7 +98,7 @@ const credentials = {
         properties: {
           value: 500,
           message:
-            'Celoxis rejected the connection. Check access token, Server URL, and that your plan includes n8n Integration.',
+            'Connection rejected. Check access token, Server URL, and that your plan includes the integration.',
         },
       },
     ],
@@ -246,9 +246,25 @@ async function execute(n8nThis, getAdapter) {
       } catch (e) {
         params.searchFilters = {};
       }
+      try {
+        params.page = n8nThis.getNodeParameter('page', i, 1);
+      } catch (e) {
+        params.page = undefined;
+      }
+      try {
+        const limit = n8nThis.getNodeParameter('limit', i, 0);
+        params.limit = limit > 0 ? limit : undefined;
+      } catch (e) {
+        params.limit = undefined;
+      }
+      try {
+        params.sort = n8nThis.getNodeParameter('sort', i, '');
+      } catch (e) {
+        params.sort = undefined;
+      }
     }
     const result = await mapping.executeItem(adapter, operation, params);
-    mapping.toN8nItems(result).forEach((item) => returnData.push(item));
+    mapping.toN8nItems(result, i).forEach((item) => returnData.push(item));
   }
   return [returnData];
 }

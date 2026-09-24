@@ -23,7 +23,7 @@ export class CeloxisApi implements ICredentialType {
 			default: '',
 			required: true,
 			description:
-				'Copy and paste your access token generated in Celoxis. (Click on API under your profile icon. You must have administrator privileges)',
+				'Paste your API access token from your profile (API). Administrator privileges are required.',
 		},
 		{
 			displayName: 'Server URL',
@@ -32,7 +32,7 @@ export class CeloxisApi implements ICredentialType {
 			required: true,
 			default: 'https://app.celoxis.com',
 			description:
-				'US SaaS customers - https://app.celoxis.com. EU SaaS customers - https://eu.celoxis.com. On-premise customers - enter the value on your Administration > Site Settings page.',
+				'US SaaS: https://app.celoxis.com. EU SaaS: https://eu.celoxis.com. On-premise: use the host from Administration > Site Settings.',
 		},
 	];
 
