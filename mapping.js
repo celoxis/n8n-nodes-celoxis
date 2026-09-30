@@ -675,12 +675,12 @@ const actionProperties = [
   resourceMapperProperty('add', ['create', 'clone']),
   // Cascade keys outside Resource Mapper so options reload.
   {
-    displayName: 'Record ID',
+    displayName: 'Custom App ID',
     name: 'recordId',
     type: 'number',
     required: true,
     default: 0,
-    description: 'Numeric id of the workflow app record.',
+    description: 'Numeric id of the custom app record.',
     displayOptions: {
       show: {
         operation: ['transition'],
