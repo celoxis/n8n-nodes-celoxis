@@ -43,7 +43,9 @@ jobs:
         run: npm run build
 
       - name: Verify package loads
-        run: node -e "require('./dist/index'); require('./dist/mapping'); console.log('ok')"
+        run: |
+          node -e "require('./dist/nodes/Celoxis/Celoxis.node'); require('./dist/nodes/Celoxis/CeloxisTrigger.node'); require('./dist/credentials/CeloxisApi.credentials'); console.log('ok')"
+          node test/operations.regression.js
 
       - name: Publish
         run: |
