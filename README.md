@@ -1,6 +1,6 @@
 # n8n-nodes-celoxis
 
-Celoxis for n8n — same idea as the Zapier app: customers run **their** n8n, install this node, connect with a Celoxis token.
+Official Celoxis community node for n8n. Install it in your n8n instance, connect with a Celoxis API token, and automate projects, tasks, and other records.
 
 ```
 n8n-nodes-celoxis/
@@ -18,9 +18,38 @@ n8n-nodes-celoxis/
 
 ---
 
-## 1. Test locally (do this first)
+## Install (customers)
 
-You already have n8n at `http://localhost:5678`. It will **not** show Celoxis until this package is linked and n8n is restarted.
+### Self-hosted n8n
+
+1. Settings → Community nodes → Install
+2. Package name: `n8n-nodes-celoxis`
+
+### n8n Cloud
+
+Search for **Celoxis** in the nodes panel after verification on the [Creator Portal](https://creators.n8n.io/nodes).
+
+### Credentials
+
+| Field | Description |
+|---|---|
+| Access Token | Celoxis profile → API (admin) |
+| Server URL | `https://app.celoxis.com`, `https://eu.celoxis.com`, or your on-prem origin |
+
+---
+
+## Operations
+
+| Triggers | Actions |
+|---|---|
+| On record created | Create a Celoxis record |
+| On record updated | Update / Get / Find / Upsert / Clone / Delete record, Move a task |
+
+---
+
+## 1. Test locally (developers)
+
+You need a running n8n instance (default `http://localhost:5678`). Celoxis appears only after this package is linked and n8n is restarted.
 
 ### Install n8n CLI if needed
 
@@ -31,9 +60,8 @@ npm install -g n8n
 ### Link this package into n8n (recommended)
 
 ```bash
-# cd into this package on your machine, then:
-cd psa/base/src/integrations/n8n-wrapper
-# e.g. cd /Users/akhlesh/working_projects/v15.1.0/psa/base/src/integrations/n8n-wrapper
+# from the root of this repository (n8n-nodes-celoxis):
+cd /path/to/n8n-nodes-celoxis
 npm link
 
 mkdir -p ~/.n8n/custom
@@ -42,7 +70,7 @@ npm init -y
 npm link n8n-nodes-celoxis
 ```
 
-Stop the n8n process that is bound to port 5678, then:
+Stop any n8n process on port 5678, then:
 
 ```bash
 n8n start
@@ -50,38 +78,25 @@ n8n start
 
 Open `http://localhost:5678` → **Add first step** → search **Celoxis**.
 
-You should see:
-
-| Triggers | Actions |
-|---|---|
-| On record created | Create a Celoxis record |
-| On record updated | Update / Get / Find / Upsert / Clone / Delete record, Move a task |
-
-If Celoxis does not appear: n8n was not restarted, or a **different** n8n is still running (Docker, desktop app, another Node process). Quit that one and start `n8n start` from a terminal after the `npm link` steps.
+If Celoxis does not appear: n8n was not restarted, or a different n8n is still running (Docker, desktop app, another Node process). Quit that one and start `n8n start` from a terminal after the `npm link` steps.
 
 ### Alternative: env var (no npm link)
 
 ```bash
-# Example — set to the absolute path of this package on your machine:
-export N8N_CUSTOM_EXTENSIONS="/Users/<you>/working_projects/v15.1.0/psa/base/src/integrations/n8n-wrapper"
+# set to the absolute path of your local n8n-nodes-celoxis clone:
+export N8N_CUSTOM_EXTENSIONS="/path/to/n8n-nodes-celoxis"
 n8n start
 ```
 
 ### Exercise a real call
 
-1. Celoxis must be running with `/api/integrations/v1` (local app or SaaS).
-2. In n8n: Credentials → **Celoxis API**
-   - Access Token: Celoxis profile → API (admin)
-   - Server URL: `https://app.celoxis.com` / `https://eu.celoxis.com` / your on-prem origin
+1. Celoxis must be reachable at `/api/integrations/v1` (SaaS or on-prem).
+2. In n8n: Credentials → **Celoxis API** — Access Token + Server URL.
 3. Add **Celoxis** → action **Get a Celoxis record** (safest first test).
-4. **Type** should fill from Celoxis (projects, tasks, …). If it is empty, the node loaded but the API call failed — check token, URL, and that the integration API is deployed.
+4. **Type** should fill from Celoxis (projects, tasks, …). If empty, the node loaded but the API call failed — check token, URL, and that the integration API is available.
 5. Enter a known record id → Execute step.
 
 Triggers need a reachable webhook URL. On localhost use n8n’s webhook test URL only if Celoxis can POST to it (tunnel / n8n cloud), or test actions first.
-
-### Integration test workflows + CommonTestData
-
-See [`examples/README.md`](examples/README.md): load dataset `integration`, run `00-integration-predata`, then import the C/U/G/F/UP/CL/D/M/T/TC/TU workflow JSONs (nodes named by case id).
 
 ### Package regression tests (no live Celoxis)
 
@@ -98,19 +113,9 @@ Package name: `n8n-nodes-celoxis`. Keep the keyword `n8n-community-node-package`
 Do **not** use laptop `npm publish` for verification. Publish via tag → GitHub Actions (`.github/workflows/publish.yml`) with npm provenance.
 
 ```bash
-# after changing integrations/common, re-vendor helpers:
-cp ../common/celoxisAdapter.js ../common/mappingCore.js nodes/Celoxis/helpers/
-
-# from this package (or the public clone of celoxis/n8n-nodes-celoxis):
+# from this package root:
 npm version 1.0.0   # or patch / minor / major
 git push origin main --follow-tags
 ```
 
 One-time on npm: Trusted Publisher → GitHub Actions → owner `celoxis`, repo `n8n-nodes-celoxis`, workflow `publish.yml`.
-
-Customers:
-
-1. Self-hosted → Settings → Community nodes → Install `n8n-nodes-celoxis`
-2. n8n Cloud search → after [Creator Portal](https://creators.n8n.io/nodes) verification
-
-Credentials: Access Token + Server URL.
