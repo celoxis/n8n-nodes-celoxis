@@ -1,10 +1,10 @@
-// n8n-only mapping over /api/integrations/v1 via the common adapter.
-// No Celoxis business rules. Node params / webhooks ↔ adapter only.
+// Operation mapping for the Celoxis n8n node (params / schema ↔ API).
+// Used by Celoxis.node.ts and CeloxisTrigger.node.ts via GenericFunctions.
 
 'use strict';
 
-const { normalizeFields, unwrapData } = require('./lib/celoxisAdapter');
-const core = require('./lib/mappingCore');
+const { normalizeFields, unwrapData } = require('./helpers/celoxisAdapter');
+const core = require('./helpers/mappingCore');
 
 const SAMPLE = core.SAMPLE;
 
@@ -436,14 +436,68 @@ const getInputProperties = async (adapter, entityKey, operation, values) => {
   });
 };
 
-const withSchemaPayload = async (adapter, entityKey, operation, values, writer) => {
-  const schema = normalizeFields(
+/**
+ * Map Automatically leaves fields.value empty. n8n does not copy the incoming
+ * item into the resource mapper; take keys that match the create/update schema.
+ */
+const mergeAutoMappedInput = (values, params, schema) => {
+  const fields = params && params.fields;
+  if (!fields || fields.mappingMode !== 'autoMapInputData') {
+    return values;
+  }
+  const input = params.input && typeof params.input === 'object' ? params.input : {};
+  const allowed = Object.create(null);
+  ((schema && schema.inputFields) || []).forEach((field) => {
+    if (field && field.key && !field.readOnly) {
+      allowed[field.key] = true;
+    }
+  });
+  const out = Object.assign({}, values);
+  Object.keys(input).forEach((key) => {
+    if (!allowed[key]) {
+      return;
+    }
+    const val = input[key];
+    if (val === undefined || val === null || val === '') {
+      return;
+    }
+    out[key] = val;
+  });
+  return out;
+};
+
+const withSchemaPayload = async (adapter, entityKey, operation, values, writer, params) => {
+  let schema = normalizeFields(
     await adapter.schema(entityKey, {
       operation: operation,
       values: schemaValues(values),
     })
   );
-  return writer(entityKey, buildWritePayload(values, schema));
+  let merged = mergeAutoMappedInput(values, params, schema);
+  if (schema.refreshSchema) {
+    schema = normalizeFields(
+      await adapter.schema(entityKey, {
+        operation: operation,
+        values: schemaValues(Object.assign({}, values, merged)),
+      })
+    );
+    merged = mergeAutoMappedInput(values, params, schema);
+  }
+  const payload = buildWritePayload(merged, schema);
+  const custom = payload && payload.customFields ? Object.keys(payload.customFields) : [];
+  const keys = Object.keys(payload || {}).filter((key) => key !== 'customFields');
+  if (!keys.length && !custom.length) {
+    const mode = params && params.fields && params.fields.mappingMode;
+    if (mode === 'autoMapInputData') {
+      throw new Error(
+        'No fields to send. With Map Automatically, the incoming item keys must match the Celoxis field names.'
+      );
+    }
+    throw new Error(
+      'No fields to send. Map at least one field under Values to Send, or switch to Map Automatically.'
+    );
+  }
+  return writer(entityKey, payload);
 };
 
 const executeItem = async (adapter, operation, params) => {
@@ -467,7 +521,9 @@ const executeItem = async (adapter, operation, params) => {
     return core.unwrapRecord(await adapter.get(entityKey, lookup));
   }
   if (operation === 'search') {
-    const searchValues = Object.assign({}, flattenFields(params.fields), schemaValues(params));
+    // Prefer Filters UI rows. Do not merge params.input into filter keys
+    // (n8n would send Unknown Filter:input).
+    const searchValues = Object.assign({}, flattenFields(params.fields));
     if (params.searchFilters) {
       searchValues.searchFilters = params.searchFilters;
     }
@@ -487,21 +543,33 @@ const executeItem = async (adapter, operation, params) => {
     return withSchemaPayload(adapter, entityKey, 'clone', values, async (key, payload) => {
       delete payload.id;
       return core.unwrapRecord(await adapter.clone(key, id, payload));
-    });
+    }, params);
   }
   if (operation === 'update') {
     return withSchemaPayload(adapter, entityKey, 'update', values, async (key, payload) => {
       return core.unwrapRecord(await adapter.update(key, id, payload));
-    });
+    }, params);
   }
   if (operation === 'upsert') {
     return withSchemaPayload(adapter, entityKey, 'upsert', values, async (key, payload) => {
       return core.unwrapRecord(await adapter.upsert(key, payload));
-    });
+    }, params);
   }
   if (operation === 'move') {
     // Java moveTask coerces {data:{id}} — no schema round-trip needed.
-    const payload = Object.assign({}, values);
+    let payload = Object.assign({}, values);
+    // Map Automatically leaves fields.value empty; copy project/parent from incoming item.
+    const fields = params && params.fields;
+    if (fields && fields.mappingMode === 'autoMapInputData') {
+      const input = params.input && typeof params.input === 'object' ? params.input : {};
+      ['project', 'parent'].forEach((key) => {
+        const val = input[key];
+        if (val === undefined || val === null || val === '') {
+          return;
+        }
+        payload[key] = val;
+      });
+    }
     delete payload.id;
     delete payload.entityKey;
     const res = unwrapData(await adapter.moveTask(id, payload));
@@ -510,11 +578,11 @@ const executeItem = async (adapter, operation, params) => {
   if (operation === 'transition') {
     return withSchemaPayload(adapter, entityKey, 'transition', values, async (key, payload) => {
       return core.unwrapRecord(await adapter.transition(key, payload));
-    });
+    }, params);
   }
   return withSchemaPayload(adapter, entityKey, 'create', values, async (key, payload) => {
     return core.unwrapRecord(await adapter.create(key, payload));
-  });
+  }, params);
 };
 
 const toN8nItems = (result, inputIndex) => {
@@ -711,7 +779,9 @@ const actionProperties = [
   resourceMapperProperty('add', ['move'], {
     loadOptionsDependsOn: ['operation', 'id', 'fields'],
   }),
-  resourceMapperProperty('update', ['update']),
+  // Record is chosen by the ID field. Mapper mode "update" only shows match columns
+  // and hides the values when none exist. "add" lists the fields so they can be typed.
+  resourceMapperProperty('add', ['update']),
   resourceMapperProperty('upsert', ['upsert']),
   // Find: Field / Operator / Value rows. Do not use resourceMapper for filter ops.
   {

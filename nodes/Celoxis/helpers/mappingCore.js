@@ -1,7 +1,6 @@
 /**
- * Shared mapping helpers for Zapier + n8n (payloads, unwrap, samples).
- * Platform UI / SDK code stays in each wrapper's mapping.js.
- * No Zapier or n8n SDK imports here.
+ * Mapping helpers (payloads, unwrap, samples) for the Celoxis n8n node.
+ * No n8n SDK imports here.
  */
 
 'use strict';
@@ -10,7 +9,18 @@ const { unwrapData } = require('./celoxisAdapter');
 
 const SAMPLE = { id: 1, name: 'Sample' };
 
-const DEFAULT_STRIP = ['entityKey', 'operation', 'event', 'fields', 'searchFilters', 'page', 'limit', 'sort'];
+const DEFAULT_STRIP = [
+  'entityKey',
+  'operation',
+  'event',
+  'fields',
+  'searchFilters',
+  'page',
+  'limit',
+  'sort',
+  // n8n execute() injects the previous item here; never a Celoxis field/filter
+  'input',
+];
 
 /**
  * Celoxis report filter expression operators (POPredicate).
@@ -283,6 +293,44 @@ function coerceAssociationId(val) {
 }
 
 /**
+ * Find/Get often return enum labels; create/update schema options use ids.
+ * Accept either label or value — ids pass through unchanged.
+ * @param {object} [inputData]
+ * @param {object} [schema]
+ */
+function resolveOptionLabels(inputData, schema) {
+  const out = Object.assign({}, inputData || {});
+  ((schema && schema.inputFields) || []).forEach((field) => {
+    if (!field || !field.key) {
+      return;
+    }
+    const raw = out[field.key];
+    if (raw === undefined || raw === null || raw === '') {
+      return;
+    }
+    const opts =
+      (field.options && field.options.values) ||
+      (Array.isArray(field.options) ? field.options : null);
+    if (!opts || !opts.length) {
+      return;
+    }
+    const s = String(raw);
+    const byValue = opts.find((o) => o && String(o.value) === s);
+    if (byValue) {
+      out[field.key] = byValue.value;
+      return;
+    }
+    const byLabel = opts.find(
+      (o) => o && (String(o.label) === s || String(o.name) === s)
+    );
+    if (byLabel) {
+      out[field.key] = byLabel.value;
+    }
+  });
+  return out;
+}
+
+/**
  * @param {object} [inputData]
  * @param {object} [schema]
  * @param {{ normalizeValue?: (v:any)=>any, skipKeys?: string[] }} [opts]
@@ -298,13 +346,14 @@ function buildWritePayload(inputData, schema, opts) {
   ((schema && schema.inputFields) || []).forEach((f) => {
     byKey[f.key] = f;
   });
+  const resolved = resolveOptionLabels(inputData, schema);
   const customFields = {};
   const body = {};
-  Object.keys(inputData || {}).forEach((key) => {
+  Object.keys(resolved || {}).forEach((key) => {
     if (skip[key] || key.endsWith('__op')) {
       return;
     }
-    const val = coerceAssociationId(normalize(inputData[key]));
+    const val = coerceAssociationId(normalize(resolved[key]));
     if (val === undefined || val === '') {
       return;
     }
@@ -402,6 +451,17 @@ function encodeFilterExpression(opId, value, opts) {
   // ChoiceFilter / reference / boolean: raw selected value (getIntList / getBoolList).
   if (isPickerType(fieldType) || isBooleanType(fieldType)) {
     return String(val).replace(/^[=~!\s]+/, '');
+  }
+  // Association filters (task/project/…) are often typed as string in search schema but
+  // use ChoiceFilter — "=165" matches nothing; bare "165" works. Same for eq/neq integer ids.
+  if (
+    (op.id === 'eq' || op.id === 'neq') &&
+    (typeof val === 'number'
+      ? Number.isInteger(val)
+      : typeof val === 'string' && /^-?\d+$/.test(String(val).trim()))
+  ) {
+    const id = String(val).trim().replace(/^[=~!\s]+/, '');
+    return op.id === 'neq' ? '!' + id : id;
   }
   return op.prefix + String(val);
 }
@@ -581,6 +641,7 @@ module.exports = {
   DEFAULT_STRIP,
   FILTER_OPERATORS,
   schemaValues,
+  resolveOptionLabels,
   buildWritePayload,
   coerceAssociationId,
   buildSearchPayload,

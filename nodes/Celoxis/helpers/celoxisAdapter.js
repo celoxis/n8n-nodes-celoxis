@@ -1,10 +1,6 @@
 /**
- * Common Celoxis Integration Adapter
- *
- * Platform-neutral client over /api/integrations/v1.
- * Zapier and n8n wrappers call this; they must not reimplement Celoxis entity/schema/ops/trigger logic.
- *
- * No Zapier SDK or n8n SDK dependencies here.
+ * Celoxis Integration API transport (/api/integrations/v1).
+ * Used by the Celoxis n8n node helpers. No n8n SDK imports here.
  */
 
 'use strict';
