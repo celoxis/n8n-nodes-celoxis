@@ -1,121 +1,161 @@
 # n8n-nodes-celoxis
 
-Official Celoxis community node for n8n. Install it in your n8n instance, connect with a Celoxis API token, and automate projects, tasks, and other records.
+This is an n8n community node. It lets you use [Celoxis](https://www.celoxis.com/) in your n8n workflows.
 
+[Celoxis](https://www.celoxis.com/) is a project management and work management platform. With this node you can create, update, find, delete, and trigger on Celoxis records (projects, tasks, time entries, custom apps, and more).
+
+[n8n](https://n8n.io/) is a [fair-code licensed](https://docs.n8n.io/reference/license/) workflow automation platform.
+
+[Installation](#installation)  
+[Operations](#operations)  
+[Credentials](#credentials)  
+[Compatibility](#compatibility)  
+[Usage](#usage)  
+[Resources](#resources)  
+
+## Installation
+
+Follow the [installation guide](https://docs.n8n.io/integrations/community-nodes/installation/) in the n8n community nodes documentation.
+
+### Community Nodes (recommended)
+
+1. In your n8n instance, go to **Settings → Community Nodes**
+2. Select **Install**
+3. Enter `n8n-nodes-celoxis`
+4. Agree to the risks and select **Install**
+
+After installation, search for **Celoxis** or **Celoxis Trigger** when adding a node.
+
+### Manual installation (self-hosted)
+
+```bash
+npm install n8n-nodes-celoxis
 ```
-n8n-nodes-celoxis/
-  credentials/CeloxisApi.credentials.ts
-  nodes/Celoxis/
-    Celoxis.node.ts
-    CeloxisTrigger.node.ts
-    GenericFunctions.ts
-    operations.js
-    helpers/                   API transport + shared mapping helpers
-    celoxis.svg
-  dist/                        build output (published)
-  package.json
-```
 
----
-
-## Install (customers)
-
-### Self-hosted n8n
-
-1. Settings → Community nodes → Install
-2. Package name: `n8n-nodes-celoxis`
-
-### n8n Cloud
-
-Search for **Celoxis** in the nodes panel after verification on the [Creator Portal](https://creators.n8n.io/nodes).
-
-### Credentials
-
-| Field | Description |
-|---|---|
-| Access Token | Celoxis profile → API (admin) |
-| Server URL | `https://app.celoxis.com`, `https://eu.celoxis.com`, or your on-prem origin |
-
----
+Restart n8n after installing.
 
 ## Operations
 
-| Triggers | Actions |
+### Celoxis (actions)
+
+| Operation | Description |
 |---|---|
-| On record created | Create a Celoxis record |
-| On record updated | Update / Get / Find / Upsert / Clone / Delete record, Move a task |
+| **Create Record** | Create a record. Choose **Type**, then complete the fields for that type. |
+| **Update Record** | Update a record. Choose **Type** and **ID**, then set the fields to change. |
+| **Get Record** | Get one record by **Type** using exactly one identifier: ID, Project Code, External Key, or GUID (when supported). |
+| **Find Records** | Find records matching filters (all conditions must match), with optional page, limit, and sort. |
+| **Upsert Record** | Create or update a record. Only types that support upsert appear under **Type**. |
+| **Clone Record** | Clone an existing record. |
+| **Delete Record** | Delete a record. Choose **Type** and **ID**. Only deletable types appear under **Type**. |
+| **Move Task** | Move a task to another project, optionally under a parent task. |
+| **Do State Transition** | Run a workflow transition on a custom app record. |
 
----
+### Celoxis Trigger
 
-## 1. Test locally (developers)
+| Event | Description |
+|---|---|
+| **Record Created** | Starts the workflow when a record is created. Choose **Type** first. |
+| **Record Updated** | Starts the workflow when a record is updated. Choose **Type** first. |
 
-You need a running n8n instance (default `http://localhost:5678`). Celoxis appears only after this package is linked and n8n is restarted.
+Supported record types are loaded dynamically from your Celoxis account (for example projects, tasks, time entries, and custom apps available to your token).
 
-### Install n8n CLI if needed
+## Credentials
 
-```bash
-npm install -g n8n
-```
+This node uses **Celoxis API** credentials.
 
-### Link this package into n8n (recommended)
+### Prerequisites
 
-```bash
-# from the root of this repository (n8n-nodes-celoxis):
-cd /path/to/n8n-nodes-celoxis
-npm link
+- A Celoxis account (US SaaS, EU SaaS, or on-premise)
+- An API access token from a user with administrator privileges
 
-mkdir -p ~/.n8n/custom
-cd ~/.n8n/custom
-npm init -y
-npm link n8n-nodes-celoxis
-```
+### How to get your access token
 
-Stop any n8n process on port 5678, then:
+1. Sign in to Celoxis
+2. Open your **profile**
+3. Go to **API**
+4. Copy the access token
 
-```bash
-n8n start
-```
+### Credential fields
 
-Open `http://localhost:5678` → **Add first step** → search **Celoxis**.
+| Field | Required | Description |
+|---|---|---|
+| **Access Token** | Yes | Paste the API access token from your Celoxis profile. |
+| **Server URL** | Yes | Base URL of your Celoxis site. |
 
-If Celoxis does not appear: n8n was not restarted, or a different n8n is still running (Docker, desktop app, another Node process). Quit that one and start `n8n start` from a terminal after the `npm link` steps.
+Examples for **Server URL**:
 
-### Alternative: env var (no npm link)
+| Environment | Server URL |
+|---|---|
+| US SaaS | `https://app.celoxis.com` |
+| EU SaaS | `https://eu.celoxis.com` |
+| On-premise | Your Celoxis origin (from **Administration → Site Settings**) |
 
-```bash
-# set to the absolute path of your local n8n-nodes-celoxis clone:
-export N8N_CUSTOM_EXTENSIONS="/path/to/n8n-nodes-celoxis"
-n8n start
-```
+The credential test calls `/psa/api/v2/me` on the Server URL to verify the token.
 
-### Exercise a real call
+## Compatibility
 
-1. Celoxis must be reachable at `/api/integrations/v1` (SaaS or on-prem).
-2. In n8n: Credentials → **Celoxis API** — Access Token + Server URL.
-3. Add **Celoxis** → action **Get a Celoxis record** (safest first test).
-4. **Type** should fill from Celoxis (projects, tasks, …). If empty, the node loaded but the API call failed — check token, URL, and that the integration API is available.
-5. Enter a known record id → Execute step.
+- Requires n8n with community nodes support
+- Requires Node.js 18 or newer on self-hosted n8n
+- Tested against current n8n releases used with community node packages
+- Works with Celoxis US SaaS, EU SaaS, and on-premise installations that expose the Celoxis integration API
 
-Triggers need a reachable webhook URL. On localhost use n8n’s webhook test URL only if Celoxis can POST to it (tunnel / n8n cloud), or test actions first.
+## Usage
 
-### Package regression tests (no live Celoxis)
+### 1. Add credentials
 
-```bash
-npm test
-```
+1. In n8n, open **Credentials**
+2. Create **Celoxis API**
+3. Paste your **Access Token**
+4. Set **Server URL** (for example `https://app.celoxis.com`)
+5. Save and test the credential
 
----
+### 2. Run an action (example: Get a record)
 
-## 2. Publish (npm + GitHub Actions)
+1. Add a **Celoxis** node to your workflow
+2. Select operation **Get Record**
+3. Choose **Type** (for example Project or Task)
+4. Enter exactly one identifier (ID, Project Code, External Key, or GUID, depending on the type)
+5. Execute the step
 
-Package name: `n8n-nodes-celoxis`. Keep the keyword `n8n-community-node-package`.
+**Type** and field lists are loaded from Celoxis. If **Type** is empty, check the credential token, Server URL, and that your Celoxis site is reachable.
 
-Do **not** use laptop `npm publish` for verification. Publish via tag → GitHub Actions (`.github/workflows/publish.yml`) with npm provenance.
+### 3. Create or update a record
 
-```bash
-# from this package root:
-npm version 1.0.0   # or patch / minor / major
-git push origin main --follow-tags
-```
+1. Add a **Celoxis** node
+2. Choose **Create Record** or **Update Record**
+3. Select **Type**
+4. Fill the dynamic fields shown for that type
+5. For update, also provide the record **ID**
 
-One-time on npm: Trusted Publisher → GitHub Actions → owner `celoxis`, repo `n8n-nodes-celoxis`, workflow `publish.yml`.
+### 4. Find records
+
+1. Choose **Find Records**
+2. Select **Type**
+3. Add filter conditions (all conditions must match)
+4. Optionally set page, limit, and sort
+5. Execute the step
+
+### 5. Use triggers
+
+1. Add a **Celoxis Trigger** node
+2. Choose **Record Created** or **Record Updated**
+3. Select **Type**
+4. Activate the workflow so n8n can register the webhook with Celoxis
+
+Triggers need a URL that Celoxis can reach. On local n8n, use a tunnel or n8n Cloud; otherwise test actions first.
+
+### Tips
+
+- Start with **Get Record** to confirm credentials and connectivity
+- Field labels and required fields follow your Celoxis configuration for that type
+- For custom apps, use **Do State Transition** to run workflow transitions
+- Use expressions (for example `{{ $json.id }}`) to pass IDs between nodes
+
+## Resources
+
+* [n8n community nodes documentation](https://docs.n8n.io/integrations/community-nodes/)
+* [Install community nodes](https://docs.n8n.io/integrations/community-nodes/installation/)
+* [Celoxis](https://www.celoxis.com/)
+* [Celoxis help / API](https://www.celoxis.com/help)
+* [GitHub repository](https://github.com/celoxis/n8n-nodes-celoxis)
+* [npm package](https://www.npmjs.com/package/n8n-nodes-celoxis)
